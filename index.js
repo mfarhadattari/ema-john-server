@@ -17,20 +17,51 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    maxPoolSize: 10,
   },
 });
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    await client.connect((err) => {
+      if (err) {
+        console.error(err);
+        return;
+      }
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
+
+    /* ----- mongodb collection------- */
+    const productCollection = client.db("emaJhonData").collection("products");
+
+    app.get("/products", async (req, res) => {
+      const currentPage = parseInt(req.query.page) || 0;
+      const limit = parseInt(req.query.limit) || 12;
+      const skip = currentPage * limit;
+      const result = await productCollection
+        .find()
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      res.send(result);
+    });
+
+    app.get("/totalProducts", async (req, res) => {
+      const totalProducts = await productCollection.countDocuments();
+      res.send({ totalProducts: totalProducts });
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
   } finally {
     // Ensures that the client will close when you finish/error
-    await client.close();
+    // await client.close();
   }
 }
 run().catch(console.dir);
