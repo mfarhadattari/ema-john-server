@@ -17,10 +17,10 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    maxPoolSize: 10,
   },
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  maxPoolSize: 10,
 });
 
 async function run() {
