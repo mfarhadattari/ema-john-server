@@ -1,7 +1,12 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const {
+  MongoClient,
+  ServerApiVersion,
+  ObjectId,
+  ConnectionCheckOutFailedEvent,
+} = require("mongodb");
 const jwt = require("jsonwebtoken");
 
 const app = express();
@@ -62,6 +67,13 @@ async function run() {
     const productCollection = client.db("emaJhonData").collection("products");
     const ordersCollection = client.db("emaJhonData").collection("orders");
 
+    /* ------------- load number of total products ------------- */
+    app.get("/totalProducts", async (req, res) => {
+      const totalProducts = await productCollection.countDocuments();
+      console.log("It is Local Server", req.url);
+      res.send({ totalProducts: totalProducts });
+    });
+
     /* ------------------ load product using pagination ----------------- */
     app.get("/products", async (req, res) => {
       const currentPage = parseInt(req.query.page) || 0;
@@ -73,6 +85,7 @@ async function run() {
         .limit(limit)
         .toArray();
 
+      console.log("It is Local Server", req.url);
       res.send(result);
     });
 
@@ -95,8 +108,33 @@ async function run() {
         res.send(result);
       } else {
         const result = await ordersCollection.insertOne(data);
+        console.log("It is Local Server", req.url);
         res.send(result);
       }
+    });
+
+    /* ----------------- remove from cart --------------- */
+    app.delete("/remove-from-cart/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const result = await ordersCollection.deleteOne(filter);
+      console.log("It is Local Server", req.url);
+      res.send(result);
+    });
+
+    /* ----------------- clear cart -------------------- */
+    app.delete("/clear-cart", verifyToken, async (req, res) => {
+      const email = req.query.email;
+      const decoded = req.decoded;
+      if (decoded.email !== email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "Access Forbidden" });
+      }
+      const filter = { email: email };
+      const result = await ordersCollection.deleteMany(filter);
+      console.log("It is Local Server", req.url);
+      res.send(result);
     });
 
     /* ---------------- get orders data ------------ */
@@ -110,13 +148,8 @@ async function run() {
       }
       const query = { email: email };
       const orders = await ordersCollection.find(query).toArray();
+      console.log("It is Local Server", req.url);
       res.send(orders);
-    });
-
-    /* ------------- load number of total products ------------- */
-    app.get("/totalProducts", async (req, res) => {
-      const totalProducts = await productCollection.countDocuments();
-      res.send({ totalProducts: totalProducts });
     });
 
     /* ----------------- generate jwt token for user ----------------- */
@@ -127,6 +160,7 @@ async function run() {
         expiresIn: "1h",
       });
       res.send({ token: token });
+      console.log("It is Local Server", req.url);
     });
 
     console.log(
