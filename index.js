@@ -62,7 +62,6 @@ async function run() {
     const productCollection = client.db("emaJhonData").collection("products");
     const ordersCollection = client.db("emaJhonData").collection("orders");
 
-
     /* ------------------ load product using pagination ----------------- */
     app.get("/products", async (req, res) => {
       const currentPage = parseInt(req.query.page) || 0;
@@ -81,7 +80,7 @@ async function run() {
     app.post("/add-to-cart/:id", async (req, res) => {
       const id = req.params.id;
       const data = req.body;
-      const findQuery = { _id: id };
+      const findQuery = { productId: id, email: data.email };
       const alreadyAdded = await ordersCollection.findOne(findQuery);
       if (alreadyAdded) {
         const updateQuantity = {
