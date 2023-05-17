@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 
 const app = express();
@@ -24,6 +24,28 @@ const client = new MongoClient(uri, {
   maxPoolSize: 10,
 });
 
+/* ----------- token verify------------ */
+const verifyToken = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res
+      .status(401)
+      .send({ error: true, message: "Unauthorized Access" });
+  }
+  const token = authorization.split(" ")[1];
+
+  jwt.verify(token, process.env.JWT_SECRET_TOKEN, (err, decoded) => {
+    if (err) {
+      return res
+        .status(401)
+        .send({ error: true, message: "Unauthorized Access" });
+    } else {
+      req.decoded = decoded;
+      next();
+    }
+  });
+};
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -38,7 +60,10 @@ async function run() {
 
     /* ----- mongodb collection------- */
     const productCollection = client.db("emaJhonData").collection("products");
+    const ordersCollection = client.db("emaJhonData").collection("orders");
 
+
+    /* ------------------ load product using pagination ----------------- */
     app.get("/products", async (req, res) => {
       const currentPage = parseInt(req.query.page) || 0;
       const limit = parseInt(req.query.limit) || 12;
@@ -52,22 +77,56 @@ async function run() {
       res.send(result);
     });
 
+    /* ------------- add to cart ----------------- */
+    app.post("/add-to-cart/:id", async (req, res) => {
+      const id = req.params.id;
+      const data = req.body;
+      const findQuery = { _id: id };
+      const alreadyAdded = await ordersCollection.findOne(findQuery);
+      if (alreadyAdded) {
+        const updateQuantity = {
+          $set: {
+            quantity: alreadyAdded.quantity + 1,
+          },
+        };
+        const result = await ordersCollection.updateOne(
+          findQuery,
+          updateQuantity
+        );
+        res.send(result);
+      } else {
+        const result = await ordersCollection.insertOne(data);
+        res.send(result);
+      }
+    });
+
+    /* ---------------- get orders data ------------ */
+    app.get("/orders", verifyToken, async (req, res) => {
+      const email = req.query.email;
+      const decoded = req.decoded;
+      if (email !== decoded.email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "Access forbidden" });
+      }
+      const query = { email: email };
+      const orders = await ordersCollection.find(query).toArray();
+      res.send(orders);
+    });
+
+    /* ------------- load number of total products ------------- */
     app.get("/totalProducts", async (req, res) => {
       const totalProducts = await productCollection.countDocuments();
       res.send({ totalProducts: totalProducts });
     });
 
+    /* ----------------- generate jwt token for user ----------------- */
     app.post("/generateUserToken", (req, res) => {
       const data = req.body;
-      console.log(data);
-
       const token = jwt.sign(data, process.env.JWT_SECRET_TOKEN, {
         algorithm: "HS512",
-        expiresIn: "60",
+        expiresIn: "1h",
       });
-
-      console.log(token);
-
       res.send({ token: token });
     });
 
