@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion } = require("mongodb");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -54,6 +55,20 @@ async function run() {
     app.get("/totalProducts", async (req, res) => {
       const totalProducts = await productCollection.countDocuments();
       res.send({ totalProducts: totalProducts });
+    });
+
+    app.post("/generateUserToken", (req, res) => {
+      const data = req.body;
+      console.log(data);
+
+      const token = jwt.sign(data, process.env.JWT_SECRET_TOKEN, {
+        algorithm: "HS512",
+        expiresIn: "60",
+      });
+
+      console.log(token);
+
+      res.send({ token: token });
     });
 
     console.log(
